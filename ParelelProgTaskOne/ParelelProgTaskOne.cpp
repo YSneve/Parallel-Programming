@@ -1,60 +1,80 @@
 ﻿#include <iostream>
-#include <omp.h>
-#include <iomanip>
-#include <chrono>
+#include <algorithm>
+#include <vector>
+#include <thread>
+#include <cmath>
 
-using namespace std;
-using namespace chrono;
-void startTest(long long int);
-int main(int argc, const char* argv[])
+void merge(std::vector<int>& v, int low, int mid, int high) {
+    std::vector<int> temp(high - low + 1);
+    int i = low, j = mid + 1, k = 0;
 
-{
-    auto stayAlive = true;
-    while (stayAlive) {
-        cout << "Enter threads count:" << endl;
-        int threadsNum;
-        cin >> threadsNum;
-        cout << "Enter iterations amount (base and power of it): " << endl;
-        int iterBase, iterPower;
-        cin >> iterBase >> iterPower;
+    while (i <= mid && j <= high) {
+        if (v[i] <= v[j])
+            temp[k++] = v[i++];
+        else
+            temp[k++] = v[j++];
+    }
+    while (i <= mid) temp[k++] = v[i++];
+    while (j <= high) temp[k++] = v[j++];
 
-        long long int iterAmount;
-        iterAmount = pow(iterBase, iterPower);
-        cout << "Total iterations count  = " << iterAmount << endl;
-        omp_set_num_threads(threadsNum);
+    for (int i = low; i <= high; i++)
+        v[i] = temp[i - low];
+}
 
-        startTest(iterAmount);
-
-        cout << "Continue? Y/N" << endl;
-        string text;
-        cin >> text;
-        if (text == "n" || text == "N")
-            stayAlive = false;
-
+void batcher_sort(std::vector<int>& v, int low, int high) {
+    if (low < high) {
+        int mid = (low + high) / 2;
+        batcher_sort(v, low, mid);
+        batcher_sort(v, mid + 1, high);
+        merge(v, low, mid, high);
     }
 }
 
-void startTest(long long int iterAmount) {
+void parallel_batcher_sort(std::vector<int>& v, int num_threads) {
+    int n = v.size();
+    int chunk_size = ceil((double)n / num_threads);
+    std::vector<std::thread> threads;
 
-    long double summ = 3.0;
-
-    double PosGrowth = (double)iterAmount / (double)omp_get_max_threads(); // start pos growth(exmp: for 10 threads with 1000 iters will be 100
-  
-    auto start = high_resolution_clock::now();
-
-#pragma omp parallel for reduction(+:summ)
-    for (long long int i = 1; i < iterAmount / 2; i++) { 
-        summ += 4.0 / (i * 2 * (i * 2 + 1) * (i * 2 + 2)) * pow(-1, i % 2 == 0 ? 1 : 2);
+    for (int i = 0; i < num_threads; i++) {
+        int low = i * chunk_size;
+        int high = std::min((i + 1) * chunk_size - 1, n - 1);
+        threads.push_back(std::thread(batcher_sort, std::ref(v), low, high));
     }
 
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<milliseconds>(stop - start);
+    for (int i = 0; i < num_threads; i++)
+        threads[i].join();
 
-    cout << setprecision(60);
-    
-    cout << "RPi: 3,14159265358979323846264338327950288419716939937510" << endl;
-    
-    cout << " Pi: " << summ << ". Time passed = " << duration.count() / 1000 << "s " << duration.count() % 1000 << "ms." << endl;
-
-    cout << "Amount of threds used: " << omp_get_max_threads() << endl;
+    // Последний проход слияния
+    for (int i = 1; i < num_threads; i++)
+        merge(v, 0, i * chunk_size - 1, std::min((i + 1) * chunk_size - 1, n - 1));
 }
+
+int main() {
+    setlocale(LC_ALL, "Russian");
+    std::vector<int> v;
+
+    // Инициализация генератора случайных чисел
+    srand(time(NULL));
+
+    // Заполнение вектора случайными числами
+    for (int i = 0; i < 10000; i++) {
+        int randomNumber = rand() % 10000;
+        v.push_back(randomNumber);
+    }
+
+    int num_threads = 4;
+    /*
+    std::cout << "Исходный вектор: ";
+    for (int i = 0; i < v.size(); i++)
+        std::cout << v[i] << " ";
+    std::cout << std::endl;
+    */
+
+
+    parallel_batcher_sort(v, num_threads);
+
+    std::cout << "Отсортированный вектор: ";
+    for (int i = 0; i < v.size(); i++)
+        std::cout << i;
+}
+        
