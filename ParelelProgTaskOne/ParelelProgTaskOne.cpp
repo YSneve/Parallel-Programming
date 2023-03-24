@@ -3,6 +3,7 @@
 #include <vector>
 #include <thread>
 #include <cmath>
+#include <chrono>
 
 void merge(std::vector<int>& v, int low, int mid, int high) {
     std::vector<int> temp(high - low + 1);
@@ -57,24 +58,28 @@ int main() {
     srand(time(NULL));
 
     // Заполнение вектора случайными числами
-    for (int i = 0; i < 10000; i++) {
-        int randomNumber = rand() % 10000;
+    for (int i = 0; i < 16000000; i++) {
+        int randomNumber = rand() % 16000000;
         v.push_back(randomNumber);
     }
 
-    int num_threads = 4;
+    int num_threads = 1;
     /*
     std::cout << "Исходный вектор: ";
     for (int i = 0; i < v.size(); i++)
         std::cout << v[i] << " ";
-    std::cout << std::endl;
+    std::cout << std::endl;S
     */
 
-
+    auto start = std::chrono::high_resolution_clock::now();
     parallel_batcher_sort(v, num_threads);
+    auto stop = std::chrono::high_resolution_clock::now();
 
-    std::cout << "Отсортированный вектор: ";
+    /*std::cout << "Отсортированный вектор: ";
     for (int i = 0; i < v.size(); i++)
-        std::cout << i;
+        std::cout << i;*/
+
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+    std::cout << "Sort duration:" << duration.count() << std::endl;
 }
         
