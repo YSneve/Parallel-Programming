@@ -1,13 +1,9 @@
 ﻿#include <iostream>
-#include <omp.h>
-#include <chrono>
+#include <mpi.h>
 
-using namespace std;
-using namespace chrono;
-
-void bubbleSort(int arr[], int n) {
+void bubbleSort(int arr[], int n, int rank, int size) {
     int i, j;
-#pragma omp parallel for shared(arr) private(i, j)
+
     for (i = 0; i < n - 1; i++) {
         for (j = 0; j < n - i - 1; j++) {
             if (arr[j] > arr[j + 1]) {
@@ -17,39 +13,45 @@ void bubbleSort(int arr[], int n) {
             }
         }
     }
+
+    int* sorted_arr = nullptr;
+    if (rank == 0) {
+        sorted_arr = new int[n];
+    }
+
+    MPI_Gather(arr, n / size, MPI_INT, sorted_arr, n / size, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        std::cout << "Sorted array:\n";
+        for (int i = 0; i < n; i++) {
+            std::cout << sorted_arr[i] << " ";
+        }
+        std::cout << std::endl;
+        delete[] sorted_arr;
+    }
 }
 
-void fillRandNums();
-const long int numOfNums = 200000;
-int arr[numOfNums];
-int main() {
-    
-    fillRandNums();
-    cout << "Nums Generated!" << endl;
+int main(int argc, char** argv) {
+    std::string ass;
+    std::cin >> ass;
+
+
+    MPI_Init(&argc, &argv);
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int arr[] = { 64, 34, 25, 12, 22, 11, 90 };
+    int n = sizeof(arr) / sizeof(arr[0]);
 
     std::cout << "Original array:\n";
-    for (int i = 0; i < numOfNums; i++) {
+    for (int i = 0; i < n; i++) {
         std::cout << arr[i] << " ";
     }
     std::cout << std::endl;
 
-    auto start = high_resolution_clock::now();
-    omp_set_num_threads(12);
-    bubbleSort(arr, numOfNums);
+    bubbleSort(arr, n, rank, size);
 
-    auto duration = duration_cast<milliseconds>( high_resolution_clock::now() - start);
-    
-    printf("TIme in ms: %d", duration);
-
+    MPI_Finalize();
     return 0;
-}
-
-
-void fillRandNums() {
-    srand(198921);
-
-    for (long int i = 0; i < numOfNums; i++) {
-        arr[i] = rand() % 100000;
-    }
-
 }
